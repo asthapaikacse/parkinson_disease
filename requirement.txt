@@ -1,0 +1,6 @@
+python==2.2.2
+pandas==2.2.2
+numpy
+catboost==1.2.8
+streamlit
+joblib
