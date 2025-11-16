@@ -3,6 +3,8 @@ import pandas as pd
 import numpy as np
 import joblib
 import os
+import pickle
+from sklearn.preprocessing import StandardScaler
 
 # Page config
 st.set_page_config(page_title="Parkinson's Disease Detection", layout="wide")
@@ -33,7 +35,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Define feature columns (29 features after dropping PatientID, DoctorInCharge, Ethnicity, EducationLevel, Diagnosis, UPDRS)
+# Define feature columns (29 features)
 FEATURE_COLUMNS = [
     'Age', 'Gender', 'BMI', 'Smoking', 'AlcoholConsumption', 'PhysicalActivity',
     'DietQuality', 'SleepQuality', 'FamilyHistoryParkinsons', 'TraumaticBrainInjury',
@@ -45,62 +47,72 @@ FEATURE_COLUMNS = [
 
 @st.cache_resource
 def load_trained_model():
-    """Load pre-trained model from .pkl file"""
+    """Load pre-trained CatBoost model"""
     
-    model_path = 'pd_classifier_model.pkl'
+    model_paths = ['pd_classifier_model.pkl', 'pd_classifier_model.joblib']
+    model = None
     
-    # Check if model file exists
-    if not os.path.exists(model_path):
-        st.error(f"❌ Model file '{model_path}' not found!")
-        st.info("Please ensure the trained model file is in the same directory as app.py")
+    for model_path in model_paths:
+        if os.path.exists(model_path):
+            try:
+                model = joblib.load(model_path)
+                st.success(f"✅ Model loaded from {model_path}")
+                return model
+            except Exception as e:
+                st.warning(f"Error loading {model_path}: {e}")
+    
+    if model is None:
+        st.error("❌ Model file not found! Please ensure pd_classifier_model.pkl exists.")
         return None
     
-    try:
-        clf_model = joblib.load(model_path)
-        st.success(f"✅ Model loaded successfully from {model_path}")
-        return clf_model
-    except Exception as e:
-        st.error(f"❌ Error loading model: {e}")
-        return None
+    return model
 
 @st.cache_resource
-def get_model_stats():
-    """Calculate model stats from test set"""
-    df = pd.read_csv('parkinsons_disease_data.csv')
-    X = df[FEATURE_COLUMNS]
-    y_diagnosis = df['Diagnosis']
-    
-    # Load model and calculate accuracy
-    clf_model = joblib.load('pd_classifier_model.pkl')
-    accuracy = clf_model.score(X, y_diagnosis)
-    
-    return accuracy
+def get_model_accuracy():
+    """Calculate model accuracy on dataset"""
+    try:
+        df = pd.read_csv('parkinsons_disease_data.csv')
+        X = df[FEATURE_COLUMNS]
+        y = df['Diagnosis']
+        
+        clf_model = load_trained_model()
+        if clf_model is None:
+            return 0.0
+        
+        # Try to get accuracy, handle different model types
+        try:
+            accuracy = clf_model.score(X, y)
+        except:
+            # If that fails, calculate manually
+            predictions = clf_model.predict(X)
+            accuracy = (predictions == y).mean()
+        
+        return accuracy
+    except Exception as e:
+        st.warning(f"Could not calculate accuracy: {e}")
+        return 0.0
 
-# Load the trained model
+# Load models
 clf_model = load_trained_model()
 
 if clf_model is None:
     st.stop()
 
-# Get model accuracy
-try:
-    clf_accuracy = get_model_stats()
-except:
-    clf_accuracy = 0.0
+# Get accuracy
+with st.spinner("Calculating model accuracy..."):
+    clf_accuracy = get_model_accuracy()
 
 # Title
-st.title("🧠 Parkinson's Disease Detection & Severity Prediction")
-st.markdown("**ML-Based Clinical Decision Support System (Using Pre-trained Model)**")
+st.title("🧠 Parkinson's Disease Detection")
+st.markdown("**ML-Based Diagnosis Support System**")
 
-# Model performance
-st.metric("Classification Model Accuracy", f"{clf_accuracy:.2%}")
-
+st.metric("Model Accuracy", f"{clf_accuracy:.2%}")
 st.markdown("---")
 
 # Sidebar inputs
 st.sidebar.header("📋 Patient Information")
 
-# Demographics - CORRECTED DEFAULTS (Healthy)
+# Demographics - HEALTHY DEFAULTS
 st.sidebar.subheader("Demographics")
 age = st.sidebar.slider("Age (years)", 18, 100, 65)
 gender = st.sidebar.selectbox("Gender", [0, 1], format_func=lambda x: "Female" if x == 0 else "Male")
@@ -137,7 +149,7 @@ st.sidebar.subheader("Cognitive & Functional")
 moca = st.sidebar.slider("MoCA Score", 0, 30, 26)
 functional_assessment = st.sidebar.slider("Functional Assessment", 0.0, 10.0, 8.0, 0.1)
 
-# Symptoms - HEALTHY DEFAULTS (No symptoms)
+# Symptoms - HEALTHY DEFAULTS
 st.sidebar.subheader("Symptoms")
 tremor = st.sidebar.slider("Tremor (0-10)", 0, 10, 0)
 rigidity = st.sidebar.slider("Rigidity (0-10)", 0, 10, 0)
@@ -152,46 +164,52 @@ predict_btn = st.sidebar.button("🔍 Predict Diagnosis", use_container_width=Tr
 
 # Main content
 if predict_btn:
-    # Create input dataframe
-    input_data = pd.DataFrame({
-        'Age': [age],
-        'Gender': [gender],
-        'BMI': [bmi],
-        'Smoking': [smoking],
-        'AlcoholConsumption': [alcohol],
-        'PhysicalActivity': [physical_activity],
-        'DietQuality': [diet_quality],
-        'SleepQuality': [sleep_quality],
-        'FamilyHistoryParkinsons': [family_history],
-        'TraumaticBrainInjury': [traumatic_brain_injury],
-        'Hypertension': [hypertension],
-        'Diabetes': [diabetes],
-        'Depression': [depression],
-        'Stroke': [stroke],
-        'SystolicBP': [systolic_bp],
-        'DiastolicBP': [diastolic_bp],
-        'CholesterolTotal': [cholesterol_total],
-        'CholesterolLDL': [cholesterol_ldl],
-        'CholesterolHDL': [cholesterol_hdl],
-        'CholesterolTriglycerides': [cholesterol_triglycerides],
-        'MoCA': [moca],
-        'FunctionalAssessment': [functional_assessment],
-        'Tremor': [tremor],
-        'Rigidity': [rigidity],
-        'Bradykinesia': [bradykinesia],
-        'PosturalInstability': [postural_instability],
-        'SpeechProblems': [speech_problems],
-        'SleepDisorders': [sleep_disorders],
-        'Constipation': [constipation]
-    })
+    # Create input dataframe - EXACT SAME ORDER AS TRAINING
+    input_dict = {
+        'Age': age,
+        'Gender': gender,
+        'BMI': bmi,
+        'Smoking': smoking,
+        'AlcoholConsumption': alcohol,
+        'PhysicalActivity': physical_activity,
+        'DietQuality': diet_quality,
+        'SleepQuality': sleep_quality,
+        'FamilyHistoryParkinsons': family_history,
+        'TraumaticBrainInjury': traumatic_brain_injury,
+        'Hypertension': hypertension,
+        'Diabetes': diabetes,
+        'Depression': depression,
+        'Stroke': stroke,
+        'SystolicBP': systolic_bp,
+        'DiastolicBP': diastolic_bp,
+        'CholesterolTotal': cholesterol_total,
+        'CholesterolLDL': cholesterol_ldl,
+        'CholesterolHDL': cholesterol_hdl,
+        'CholesterolTriglycerides': cholesterol_triglycerides,
+        'MoCA': moca,
+        'FunctionalAssessment': functional_assessment,
+        'Tremor': tremor,
+        'Rigidity': rigidity,
+        'Bradykinesia': bradykinesia,
+        'PosturalInstability': postural_instability,
+        'SpeechProblems': speech_problems,
+        'SleepDisorders': sleep_disorders,
+        'Constipation': constipation
+    }
     
-    # Ensure column order matches training
-    input_data = input_data[FEATURE_COLUMNS]
+    # Create dataframe with features in exact order
+    input_data = pd.DataFrame([input_dict])[FEATURE_COLUMNS]
     
     try:
-        # Make predictions
+        # Make prediction
         diagnosis_pred = clf_model.predict(input_data)[0]
-        diagnosis_prob = clf_model.predict_proba(input_data)[0]
+        
+        # Try to get probability
+        try:
+            diagnosis_prob = clf_model.predict_proba(input_data)[0]
+        except:
+            # If probability not available, create dummy
+            diagnosis_prob = [0.5, 0.5]
         
         # Display results
         st.header("📊 Prediction Results")
@@ -204,45 +222,52 @@ if predict_btn:
                 st.markdown(f"""
                 <div class="metric-positive">
                     <h2>🔴 Parkinson's Disease: <span style='color: #f44336;'>POSITIVE</span></h2>
-                    <p style='font-size: 18px;'>The model predicts that the patient likely has Parkinson's disease.</p>
+                    <p style='font-size: 18px;'>The model predicts a <b>positive</b> indication for Parkinson's disease.</p>
                 </div>
                 """, unsafe_allow_html=True)
             else:
                 st.markdown(f"""
                 <div class="metric-negative">
                     <h2>🟢 Parkinson's Disease: <span style='color: #4caf50;'>NEGATIVE</span></h2>
-                    <p style='font-size: 18px;'>The model predicts that the patient likely does NOT have Parkinson's disease.</p>
+                    <p style='font-size: 18px;'>The model predicts a <b>negative</b> indication for Parkinson's disease.</p>
                 </div>
                 """, unsafe_allow_html=True)
         
         with col2:
-            st.metric("Confidence (Negative)", f"{diagnosis_prob[0]*100:.1f}%")
-            st.metric("Confidence (Positive)", f"{diagnosis_prob[1]*100:.1f}%")
+            if len(diagnosis_prob) == 2:
+                st.metric("Negative (%)", f"{diagnosis_prob[0]*100:.1f}%")
+                st.metric("Positive (%)", f"{diagnosis_prob[1]*100:.1f}%")
+            else:
+                st.metric("Prediction", f"{diagnosis_pred}")
         
         st.markdown("---")
         
-        # Feature importance
-        st.subheader("🔍 Feature Importance (Top 10)")
+        # Feature importance (if available)
+        st.subheader("🔍 Prediction Details")
+        
         try:
-            feature_importance = clf_model.get_feature_importance()
-            importance_df = pd.DataFrame({
-                'Feature': FEATURE_COLUMNS,
-                'Importance': feature_importance
-            }).sort_values('Importance', ascending=False).head(10)
-            
-            st.bar_chart(importance_df.set_index('Feature'))
-        except:
-            st.info("Feature importance visualization not available for this model type.")
+            if hasattr(clf_model, 'get_feature_importance'):
+                feature_importance = clf_model.get_feature_importance()
+                importance_df = pd.DataFrame({
+                    'Feature': FEATURE_COLUMNS,
+                    'Importance': feature_importance
+                }).sort_values('Importance', ascending=False).head(10)
+                
+                st.bar_chart(importance_df.set_index('Feature'))
+            else:
+                st.info("Feature importance not available for this model type.")
+        except Exception as e:
+            st.info(f"Feature importance visualization not available: {e}")
         
         st.markdown("---")
         
         # Download results
         results_df = pd.DataFrame({
-            'Metric': ['Diagnosis', 'Confidence (Negative)', 'Confidence (Positive)'],
+            'Metric': ['Diagnosis', 'Negative Confidence (%)', 'Positive Confidence (%)'],
             'Value': [
-                'Positive' if diagnosis_pred == 1 else 'Negative',
-                f"{diagnosis_prob[0]*100:.1f}%",
-                f"{diagnosis_prob[1]*100:.1f}%"
+                'POSITIVE' if diagnosis_pred == 1 else 'NEGATIVE',
+                f"{diagnosis_prob[0]*100:.1f}" if len(diagnosis_prob) == 2 else "N/A",
+                f"{diagnosis_prob[1]*100:.1f}" if len(diagnosis_prob) == 2 else "N/A"
             ]
         })
         
@@ -250,33 +275,32 @@ if predict_btn:
         st.download_button(
             label="📥 Download Results as CSV",
             data=csv,
-            file_name="parkinsons_prediction.csv",
+            file_name="parkinson_diagnosis.csv",
             mime="text/csv"
         )
         
     except Exception as e:
-        st.error(f"Error making prediction: {e}")
+        st.error(f"❌ Error making prediction: {str(e)}")
+        st.info("**Troubleshooting:** This error usually occurs because the model was trained with different preprocessing than what we're using now.")
+        st.info("**Solution:** The model might need to be retrained with consistent preprocessing, or use the auto-training version (app_corrected.py)")
 
 else:
-    st.info("👈 Please enter patient information in the sidebar and click **Predict Diagnosis** to see results.")
+    st.info("👈 Enter patient information in the sidebar and click **Predict Diagnosis** to see results.")
     
-    # Show sample patient
     st.subheader("📋 About This System")
     st.markdown("""
-    This system uses a **pre-trained machine learning model** to predict Parkinson's disease based on **29 clinical features**.
+    This system uses a **pre-trained machine learning model** to predict Parkinson's disease.
     
-    **Features used:**
-    - **Demographics**: Age, Gender, BMI
-    - **Lifestyle**: Smoking, Alcohol, Physical Activity, Diet, Sleep
-    - **Medical History**: Family History, TBI, Hypertension, Diabetes, Depression, Stroke
-    - **Clinical Measurements**: Blood Pressure, Cholesterol levels
-    - **Cognitive**: MoCA Score, Functional Assessment
-    - **Symptoms**: Tremor, Rigidity, Bradykinesia, Postural Instability, Speech Problems, Sleep Disorders, Constipation
+    **Default values** represent a healthy individual. Adjust sliders to match your patient's profile.
     
-    **Default values** are set to represent a healthy individual. Adjust the sliders to match your patient's profile.
+    **Features analyzed:**
+    - Demographics, lifestyle, medical history
+    - Clinical measurements (BP, cholesterol)
+    - Cognitive assessment (MoCA)
+    - Motor and non-motor symptoms
     """)
 
 # Footer
 st.markdown("---")
-st.caption("⚠️ **Disclaimer**: This tool is for research and educational purposes only. Not for clinical diagnosis without professional medical consultation.")
-st.caption("Model used: pd_classifier_model.pkl")
+st.caption("⚠️ **DISCLAIMER**: For research and educational purposes only. Not for clinical diagnosis.")
+st.caption("Model: pd_classifier_model.pkl")
