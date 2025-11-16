@@ -1,6 +1,6 @@
-python==2.2.2
-pandas==2.2.2
+python
+pandas
 numpy
-catboost==1.2.8
+catboost
 streamlit
 joblib
