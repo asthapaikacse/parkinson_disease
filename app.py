@@ -114,13 +114,13 @@ if predict_btn:
         if diagnosis_pred == 1:
             st.markdown("""
             <div class="metric-positive">
-                <h2>🔴 Parkinson's Disease: <span style='color: #f44336;'>POSITIVE</span></h2>
+                <h2>🔴 Parkinson's Disease: <span style='color: #000000;'>POSITIVE</span></h2>
             </div>
             """, unsafe_allow_html=True)
         else:
             st.markdown("""
             <div class="metric-negative">
-                <h2>🟢 Parkinson's Disease: <span style='color: #4caf50;'>NEGATIVE</span></h2>
+                <h2>🟢 Parkinson's Disease: <span style='color: #000000;'>NEGATIVE</span></h2>
             </div>
             """, unsafe_allow_html=True)
     
