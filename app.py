@@ -152,4 +152,3 @@ else:
 
 st.caption("⚠️ For research only. Not for clinical diagnosis.")
 
-only change the UI of my project,make it super elegant easy to sue and attractive , no need to interfere in my ML modelse or anythin, just UI, change only HTML, CSS, no change in input feautres nad models is allowed here
