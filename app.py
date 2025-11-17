@@ -60,12 +60,28 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- ML Model Setup ---
-FEATURE_COLUMNS = [...]
-# (unchanged code here...)
+# --- ML Model Setup ---
+FEATURE_COLUMNS = [
+    'Age', 'Gender', 'BMI', 'Smoking', 'AlcoholConsumption', 'PhysicalActivity',
+    'DietQuality', 'SleepQuality', 'FamilyHistoryParkinsons', 'TraumaticBrainInjury',
+    'Hypertension', 'Diabetes', 'Depression', 'Stroke', 'SystolicBP', 'DiastolicBP',
+    'CholesterolTotal', 'CholesterolLDL', 'CholesterolHDL', 'CholesterolTriglycerides',
+    'MoCA', 'FunctionalAssessment', 'Tremor', 'Rigidity', 'Bradykinesia',
+    'PosturalInstability', 'SpeechProblems', 'SleepDisorders', 'Constipation'
+]
 
 @st.cache_resource
 def train_model():
-    # (unchanged code here...)
+    df = pd.read_csv('parkinsons_disease_data.csv')
+    X = df[FEATURE_COLUMNS]
+    y = df['Diagnosis']
+    
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+    
+    clf = RandomForestClassifier(n_estimators=100, max_depth=7, random_state=42, class_weight='balanced')
+    clf.fit(X_train, y_train)
+    
+    accuracy = clf.score(X_test, y_test)
     return clf, accuracy
 
 clf_model, accuracy = train_model()
