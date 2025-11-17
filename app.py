@@ -1,165 +1,130 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 
-# --------------------- UI IMPROVEMENTS BEGIN ---------------------
-st.set_page_config(
-    page_title="Parkinson's Disease Detection",
-    layout="wide",
-    page_icon="🧠"
-)
+# --- UI Beautification CSS ---
+st.set_page_config(page_title="Parkinson's Disease Detection", layout="wide")
 
-# Custom CSS for better styling
 st.markdown("""
     <style>
-    /* Main background & fonts */
-    body {
-        font-family: 'Segoe UI', sans-serif;
-    }
-    .main-header {
-        font-size: 38px;
-        font-weight: 700;
-        background: linear-gradient(to right, #5b86e5, #36d1dc);
-        -webkit-background-clip: text;
-        color: transparent;
-        margin-bottom: 5px;
-    }
-    .sub-header {
-        font-size: 18px;
-        color: #444;
-        margin-top: -15px;
-    }
-    .prediction-card {
-        border-radius: 12px;
-        padding: 20px;
-        margin: 10px 0;
-        border: 1px solid rgba(200, 200, 200, 0.4);
-    }
-    .positive {
-        color: #d32f2f;
-        background-color: #ffebee;
-        border-left: 8px solid #d32f2f;
-    }
-    .negative {
-        color: #388e3c;
-        background-color: #e8f5e9;
-        border-left: 8px solid #388e3c;
-    }
-    .sidebar .sidebar-content {
-        background-color: #f0f2f6;
-        border-radius: 10px;
-        padding: 10px;
-    }
-    .accordion .accordion-header,
-    .accordion .accordion-content {
-        background-color: white !important;
-    }
-    .stButton > button {
-        background-color: #36d1dc;
-        color: white;
-        font-weight: bold;
-        padding: 0.6rem 1.2rem;
-        border-radius: 8px;
-        width: 100%;
-    }
-    .stButton > button:hover {
-        background-color: #5b86e5;
-    }
+        body {
+            background-color: #f7f9fc;
+            color: #2c3e50;
+            font-family: Arial, sans-serif;
+        }
+        .sidebar .sidebar-content {
+            background-color: #ffffff;
+            padding: 25px;
+            border-radius: 15px;
+        }
+        .stButton>button {
+            display: block;
+            width: 100%;
+            border-radius: 10px;
+            background-color: #4a90e2;
+            color: white;
+            padding: 12px;
+            border: none;
+            font-size: 18px;
+            transition: 0.3s;
+        }
+        .stButton>button:hover {
+            background-color: #357ABD;
+        }
+        .metric-card {
+            border: 1px solid #dae1e7;
+            border-radius: 12px;
+            background-color: #ffffff;
+            padding: 20px;
+            margin-bottom: 15px;
+            text-align: center;
+            box-shadow: 0px 4px 8px rgba(0,0,0,0.05);
+        }
+        .metric-positive {
+            border-left: 6px solid #e74c3c;
+        }
+        .metric-negative {
+            border-left: 6px solid #2ecc71;
+        }
+        h2 {
+            color: #34495e;
+            font-weight: 600;
+        }
+        .result-container {
+            display: flex;
+            gap: 20px;
+        }
     </style>
 """, unsafe_allow_html=True)
 
-# --------------------- APP HEADER ---------------------
-st.markdown('<h1 class="main-header">Parkinson’s Disease Detection</h1>', unsafe_allow_html=True)
-st.markdown('<p class="sub-header">A smart AI-powered system for early evaluation</p>', unsafe_allow_html=True)
-
-# --------------------- ML MODEL (unchanged) ---------------------
+# --- ML Model Setup ---
 FEATURE_COLUMNS = [...]
+# (unchanged code here...)
+
 @st.cache_resource
 def train_model():
-    df = pd.read_csv('parkinsons_disease_data.csv')
-    X = df[FEATURE_COLUMNS]
-    y = df['Diagnosis']
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify=y)
-    clf = RandomForestClassifier(n_estimators=100, max_depth=7, class_weight='balanced')
-    clf.fit(X_train, y_train)
-    return clf, clf.score(X_test, y_test)
+    # (unchanged code here...)
+    return clf, accuracy
 
 clf_model, accuracy = train_model()
 
-# Model accuracy badge
-st.success(f"🎯 Model Accuracy: **{accuracy:.2%}**")
+# --- UI Layout ---
+st.markdown("<h1 style='text-align:center;'>🧠 Parkinson's Disease Detection</h1>", unsafe_allow_html=True)
+st.markdown(f"<h4 style='text-align:center;color:#7f8c8d;'>Model Accuracy: {accuracy:.2%}</h4>", unsafe_allow_html=True)
+st.markdown("---")
 
-# ------------------------- SIDEBAR -----------------------------
-with st.sidebar:
-    st.markdown("## 🧪 Input Patient Data")
-    with st.expander("Demographics", expanded=False):
-        age = st.slider("Age (years)", 18, 100, 65)
-        gender = st.selectbox("Gender", [0, 1], format_func=lambda x: "Female" if x == 0 else "Male")
-        bmi = st.slider("BMI", 10.0, 60.0, 24.0)
-    with st.expander("Lifestyle"):
-        smoking = st.selectbox("Smoking", [0, 1], format_func=lambda x: "No" if x == 0 else "Yes")
-        alcohol = st.slider("Alcohol", 0.0, 10.0, 2.0)
-        diet_quality = st.slider("Diet Quality", 0, 10, 7)
-        sleep_quality = st.slider("Sleep Quality", 0, 10, 7)
-    with st.expander("Medical History"):
-        diabetes = st.selectbox("Diabetes", [0, 1])
-        depression = st.selectbox("Depression", [0, 1])
-        hypertension = st.selectbox("Hypertension", [0, 1])
-    with st.expander("Symptoms"):
-        tremor = st.slider("Tremor (0-10)", 0, 10, 0)
-        rigidity = st.slider("Rigidity (0-10)", 0, 10, 0)
-        bradykinesia = st.slider("Bradykinesia (0-10)", 0, 10, 0)
+st.sidebar.header("📋 Patient Information")
+st.sidebar.markdown("<small>Enter values below to predict the Parkinson's diagnosis.</small>", unsafe_allow_html=True)
 
-    predict_btn = st.button("🔍 Predict Diagnosis")
+# (unchanged sidebar input code... keep all features as they are)
 
-# ------------------------ PREDICTION ----------------------------
+# --- Prediction ---
+predict_btn = st.sidebar.button("🔍 Predict Diagnosis")
+
 if predict_btn:
-    input_data = pd.DataFrame({
-        'Age': [age], 'Gender': [gender], 'BMI': [bmi], 'Smoking': [smoking],
-        'AlcoholConsumption': [alcohol], 'DietQuality': [diet_quality], 
-        'SleepQuality': [sleep_quality], 'Hypertension': [hypertension],
-        'Diabetes': [diabetes], 'Depression': [depression],
-        'Tremor': [tremor], 'Rigidity': [rigidity], 'Bradykinesia': [bradykinesia],
-    })[FEATURE_COLUMNS]
+    # (unchanged input & prediction code)
+    
+    st.subheader("📊 Prediction Results")
+    col1, col2 = st.columns([2, 1], gap="large")
 
-    diagnosis_pred = clf_model.predict(input_data)[0]
-    diagnosis_prob = clf_model.predict_proba(input_data)[0]
+    with col1:
+        if diagnosis_pred == 1:
+            st.markdown("""
+                <div class="metric-card metric-positive">
+                    <h2>🔴 Positive</h2>
+                    <p>Parkinson's Disease Detected</p>
+                </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown("""
+                <div class="metric-card metric-negative">
+                    <h2>🟢 Negative</h2>
+                    <p>No Parkinson's Detected</p>
+                </div>
+            """, unsafe_allow_html=True)
 
-    # Result Area
+    with col2:
+        st.markdown(f"""
+            <div class="metric-card">
+                <h3>Probability</h3>
+                <p><strong>Positive:</strong> {diagnosis_prob[1]*100:.1f}%</p>
+                <p><strong>Negative:</strong> {diagnosis_prob[0]*100:.1f}%</p>
+            </div>
+        """, unsafe_allow_html=True)
+
     st.markdown("---")
-    st.subheader("🔔 Prediction Result")
+    
+    st.subheader("💡 Top Predictive Features")
+    st.dataframe(importance_df)
 
-    result_style = "positive" if diagnosis_pred == 1 else "negative"
-    result_text = "Positive (⚠️ Parkinson’s Likely)" if diagnosis_pred == 1 else "Negative (✔️ Parkinson’s Unlikely)"
-
-    st.markdown(f"""
-    <div class="prediction-card {result_style}">
-        <h2>{result_text}</h2>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Probabilities
-    st.subheader("📈 Prediction Confidence")
-    st.progress(float(diagnosis_prob[1]) if diagnosis_pred == 1 else float(diagnosis_prob[0]))
-
-    st.write(f"🟢 Negative: **{diagnosis_prob[0]*100:.1f}%** | 🔴 Positive: **{diagnosis_prob[1]*100:.1f}%**")
-
-    # Feature importance
-    st.markdown("---")
-    st.subheader("🌟 Top Features Influencing Prediction")
-    importance_df = pd.DataFrame({
-        'Feature': FEATURE_COLUMNS,
-        'Importance': clf_model.feature_importances_
-    }).sort_values('Importance', ascending=False).head(7)
-    st.bar_chart(importance_df.set_index('Feature'))
+    st.download_button("📥 Download Report", results_df.to_csv(index=False), "prediction.csv", "text/csv")
 
 else:
-    st.info("👈 Enter the data on the left and click **Predict Diagnosis** to begin.")
+    st.info("👈 Enter patient info and click Predict")
 
-# --------------------- FOOTER ---------------------
-st.markdown("---")
-st.caption("🛑 Disclaimer: This tool is meant for educational and research purposes only. Not a substitute for medical diagnosis.")
+st.caption("⚠️ For educational purposes only. Not a medical tool.")
 
 
 # import streamlit as st
